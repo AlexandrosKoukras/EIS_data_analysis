@@ -119,6 +119,7 @@ def y_shift_eis_map(eismap,filling_value=0.):
     
     else:
         print('Not offset was necessary for wavelength: %s'%eismap.wavelength.value)
+        return eismap
     
 #------------------------------------------------------------------------------
 def replace_bad_pixels_eis_intmaps(intmap,option1=True,
@@ -283,4 +284,86 @@ def get_gofnt_for_pixel(line_id,temp=None,dens=None,use_sum_in_range=False,
         gofnt = ion_n.Intensity['intensity'][:,idx]
         
         return gofnt
+
+def plot_fit_profile(data_cube,fit_res,iy,ix,axes):
+    ''' Plot the fitting profile with all the components for a specific pixel.
     
+    Given a fit_res object and coordinates it plots the real data and the 
+    fitting profile with all the components.
+    
+    Parameters:
+    -----------
+        data_cube : 
+        fit_res : 
+            
+        iy : int
+            The index of the pixel in the y-direction.
+        ix : int
+            The index of the pixel in the x-direction.
+    '''    
+    
+    data_x = data_cube.wavelength[iy, ix, :]
+    data_y = data_cube.data[iy, ix, :]
+    data_err = data_cube.uncertainty.array[iy, ix, :]
+    # Remove bad data 
+    data_y[data_y<0] = np.nan 
+    data_err[data_err<0] = np.nan 
+    
+    fit_x, fit_y = fit_res.get_fit_profile(coords=[iy,ix], num_wavelengths=100)
+    
+    n_gauss = fit_res.fit['n_gauss']
+    num_wvl = 100
+    if n_gauss==1:
+        main_comp_id = fit_res.fit['main_component']
+        background_id = main_comp_id - 1
+        c0_x, c0_y = fit_res.get_fit_profile(main_comp_id, coords=[iy,ix], 
+                                             num_wavelengths=num_wvl)
+        cb_x, cb_y = fit_res.get_fit_profile(background_id, coords=[iy,ix],
+                                             num_wavelengths=num_wvl)
+        
+        # Plotting 
+        axes.errorbar(data_x, data_y, yerr=data_err, ls='', marker='o', 
+                      color='k')
+        axes.plot(fit_x, fit_y, color='b', label='Fit profile')
+        axes.plot(c0_x, c0_y, color='r', label=fit_res.fit['line_ids'][0])
+        axes.plot(cb_x, cb_y, color='c', ls='--',label='Background')
+        
+    elif n_gauss>1:
+        main_comp_id = fit_res.fit['main_component']
+        if main_comp_id==0:
+            # Same as before 
+            background_id = main_comp_id - 1            
+            c0_x, c0_y = fit_res.get_fit_profile(main_comp_id, coords=[iy,ix], 
+                                                 num_wavelengths=num_wvl)
+            cb_x, cb_y = fit_res.get_fit_profile(background_id, coords=[iy,ix],
+                                             num_wavelengths=num_wvl)
+        
+            # Get the fits for the other components 
+            cn_x, cn_y = [],[]
+            for c_id in range(1,n_gauss):
+                tmpx, tmpy = fit_res.get_fit_profile(c_id, coords=[iy,ix], 
+                                                     num_wavelengths=num_wvl)
+                cn_x.append(tmpx)
+                cn_y.append(tmpy)
+                
+            # Plotting 
+            axes.errorbar(data_x, data_y, yerr=data_err, ls='', marker='o', 
+                          color='k')
+            axes.plot(fit_x, fit_y, color='b', label='Fit profile')
+            axes.plot(c0_x, c0_y, color='r', label=fit_res.fit['line_ids'][0])
+            axes.plot(cb_x, cb_y, color='c', ls='--',label='Background')
+            for i in range(n_gauss-1):
+                axes.plot(cn_x[i], cn_y[i], label=fit_res.fit['line_ids'][i+1])
+    
+        else:
+            print('The index of the main component in a multi-gaussian fit, was not 0')
+            pass
+            # To be continued 
+    
+    axes.set_xlabel('Wavelength [$\AA$]')
+    axes.set_ylabel('%s'%data_cube.unit)
+    axes.set_title('Fit profile for x:%.d and y:%.d'%(ix,iy))
+    axes.legend(loc='upper left', frameon=False)
+    
+    return 
+
