@@ -357,8 +357,35 @@ def plot_fit_profile(data_cube,fit_res,iy,ix,axes):
     
         else:
             print('The index of the main component in a multi-gaussian fit, was not 0')
-            pass
-            # To be continued 
+            # The background is the same (hopefully always)
+            background_id = -1
+            c0_x, c0_y = fit_res.get_fit_profile(main_comp_id, coords=[iy,ix], 
+                                                 num_wavelengths=num_wvl)
+            cb_x, cb_y = fit_res.get_fit_profile(background_id, coords=[iy,ix],
+                                             num_wavelengths=num_wvl)
+            
+            
+            # To get the fits of the other components I remove the main component index
+            other_c_list = list(np.arange(0,n_gauss))
+            other_c_list.remove(main_comp_id)
+            # Get the fits for the other components 
+            cn_x, cn_y = [],[]
+            for c_id in other_c_list:
+                tmpx, tmpy = fit_res.get_fit_profile(c_id, coords=[iy,ix], 
+                                                     num_wavelengths=num_wvl)
+                cn_x.append(tmpx)
+                cn_y.append(tmpy)
+                
+            # Plotting    
+            axes.errorbar(data_x, data_y, yerr=data_err, ls='', marker='o', 
+                          color='k')
+            axes.plot(fit_x, fit_y, color='b', label='Fit profile')
+            axes.plot(c0_x, c0_y, color='r', label=fit_res.fit['line_ids'][main_comp_id])
+            axes.plot(cb_x, cb_y, color='c', ls='--',label='Background')
+            for i in range(n_gauss-1):
+                axes.plot(cn_x[i], cn_y[i], label=fit_res.fit['line_ids'][other_c_list[i]])
+                
+
     
     axes.set_xlabel('Wavelength [$\AA$]')
     axes.set_ylabel('%s'%data_cube.unit)
